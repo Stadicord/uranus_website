@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Terrell 視覺扭曲模擬</title>
+  <style>
+    body {
+      text-align: center;
+      background: #f0f0f0;
+      font-family: sans-serif;
+    }
+    canvas {
+      border: 1px solid #ccc;
+      background: white;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>高速移動物體的視覺扭曲 (Terrell Effect)</h1>
+  <canvas id="canvas" width="800" height="400"></canvas>
+  <p>藍線：實際位置｜紅線：觀察者看到的位置</p>
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const c = 1; // 光速（單位化）
+    let v = 0.9; // 物體速度，單位為光速
+    const objectWidth = 200;
+    const objectHeight = 100;
+    const frameRate = 60;
+
+    function drawFrame(time) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 畫物體的實際位置（藍色）
+      const actualX = canvas.width / 2 + v * time;
+      ctx.fillStyle = "lightblue";
+      ctx.fillRect(actualX - objectWidth / 2, canvas.height / 2 - objectHeight / 2, objectWidth, objectHeight);
+
+      // 模擬從每個點射出光線，在此時間能同時抵達觀察者的點（紅色）
+      ctx.strokeStyle = "red";
+      ctx.beginPath();
+      for (let x = -objectWidth / 2; x <= objectWidth / 2; x += 2) {
+        // 模擬光從物體上的這個點發出，到觀察者的時間是固定的
+        // 求這個點在更早時候的位置
+        const delay = Math.abs(x) / c;
+        const pastX = actualX - v * delay + x;
+
+        // 畫出這些點
+        if (x === -objectWidth / 2) ctx.moveTo(pastX, canvas.height / 2);
+        else ctx.lineTo(pastX, canvas.height / 2);
+      }
+      ctx.stroke();
+    }
+
+    let t = 0;
+    function animate() {
+      drawFrame(t);
+      t += 1 / frameRate;
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
