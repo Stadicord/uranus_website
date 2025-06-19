@@ -128,7 +128,7 @@ function initScene(canvasId, isLorentz) {
   renderer.setSize(300, 300);
 
   const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshStandardMaterial({ color: isLorentz ? 0x00aaff : 0xff8844, flatShading: true });
+  const material = new THREE.MeshStandardMaterial({ color: 0x0000ff, flatShading: true });
   const cube = new THREE.Mesh(geometry, material);
   scene.add(cube);
 
@@ -197,7 +197,7 @@ function setLang(code) {
   document.getElementById("terrellDesc").innerText = text[code].terrellDesc;
   document.getElementById("explanation").innerHTML = text[code].explanation;
   document.getElementById("perspectiveBtn").innerText = perspectiveEnabled ? text[code].perspective_off : text[code].perspective;
-  MathJax.typeset();
+  MathJax.typesetPromise();
 }
 
 function togglePerspective() {
@@ -222,6 +222,7 @@ animate();
 // Events
 betaSlider.addEventListener("input", e => updateBeta(parseFloat(e.target.value)));
 setLang("zh-TW");
+
   </script>
 </body>
 </html>
