@@ -1,160 +1,107 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>特勒爾效應模擬器</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terrell Effect 模擬器</title>
+
+  <!-- 字體與樣式 -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
       font-family: 'Noto Sans TC', sans-serif;
-      background: radial-gradient(circle at bottom, #000022, #000000);
-      color: #FFFFFF;
+      background: radial-gradient(ellipse at bottom, #001133 0%, #000000 100%);
+      color: #fff;
+      overflow-x: hidden;
+    }
+    header, footer {
+      text-align: center;
+      padding: 1em;
+    }
+    .lang-buttons button {
+      margin: 0 5px;
+      padding: 5px 10px;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+      background-color: #333;
+      color: white;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    .lang-buttons button:hover {
+      background-color: #555;
+    }
+    .controls {
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      min-height: 100vh;
+      margin: 10px;
     }
-    header {
-      text-align: center;
-      padding: 1rem;
+    .controls label {
+      margin-bottom: 5px;
     }
-    .controls {
-      margin-top: 0.5rem;
-    }
-    .container {
+    .canvas-container {
       display: flex;
-      flex-wrap: wrap;
       justify-content: center;
-      gap: 2rem;
-      padding: 1rem;
-    }
-    .canvas-panel {
-      text-align: center;
+      flex-wrap: wrap;
+      gap: 30px;
+      padding: 20px;
     }
     canvas {
+      width: 300px;
+      height: 300px;
       background: #111;
-      border: 1px solid #555;
+      border: 1px solid #444;
     }
-    footer {
-      text-align: center;
-      padding: 1rem;
-      max-width: 600px;
-    }
-    input[type=range] {
-      width: 200px;
+    #explanation {
+      max-width: 800px;
+      margin: 0 auto;
+      font-size: 1rem;
+      line-height: 1.6;
     }
   </style>
+
+  <!-- MathJax for LaTeX rendering -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
 </head>
 <body>
   <header>
     <h1 id="title">特勒爾效應模擬器</h1>
+    <div class="lang-buttons">
+      <button onclick="setLang('zh-TW')">🇹🇼 繁體中文</button>
+      <button onclick="setLang('en')">🇺🇸 English</button>
+    </div>
     <div class="controls">
       <label id="betaLabel">β = 0.00</label>
       <input type="range" id="betaSlider" min="0" max="0.99" step="0.01" value="0.00">
-      <select id="langSelect">
-        <option value="zh-TW">繁體中文</option>
-        <option value="en">English</option>
-      </select>
     </div>
   </header>
 
-  <main class="container">
-    <div class="canvas-panel">
-      <canvas id="lorentzCanvas" width="300" height="300"></canvas>
+  <main class="canvas-container">
+    <div>
+      <canvas id="lorentzCanvas"></canvas>
       <p id="lorentzDesc">洛倫茲收縮示意</p>
     </div>
-    <div class="canvas-panel">
-      <canvas id="terrellCanvas" width="300" height="300"></canvas>
+    <div>
+      <canvas id="terrellCanvas"></canvas>
       <p id="terrellDesc">特勒爾視覺效應示意</p>
     </div>
   </main>
 
   <footer>
     <p id="explanation">
-      長度收縮：物體的長度依 $L=L_0\sqrt{1-β^2}$ 縮短；特勒爾效應：觀察者會看到物體似乎旋轉了角度。<br>
-      Lorentz contraction: Length becomes $L=L_0\sqrt{1-β^2}$; Terrell effect: the object appears rotated due to light delay.
+      Lorentz 收縮：物體長度依 $$L = L_0\sqrt{1-\beta^2}$$ 收縮；<br>
+      Terrell 效應：觀測者會因光速有限，看到物體似乎旋轉。
     </p>
   </footer>
 
-  <script>
-    const betaSlider = document.getElementById('betaSlider');
-    const betaLabel = document.getElementById('betaLabel');
-    const lorentzCanvas = document.getElementById('lorentzCanvas');
-    const terrellCanvas = document.getElementById('terrellCanvas');
-    const langSelect = document.getElementById('langSelect');
-
-    const ctxL = lorentzCanvas.getContext('2d');
-    const ctxT = terrellCanvas.getContext('2d');
-
-    let beta = 0.0;
-    const cubeSize = 100;
-
-    const translations = {
-      'zh-TW': {
-        title: '特勒爾效應模擬器',
-        lorentzDesc: '洛倫茲收縮示意',
-        terrellDesc: '特勒爾視覺效應示意',
-        explanation: '長度收縮：物體的長度依 $L=L_0\\sqrt{1-β^2}$ 縮短；特勒爾效應：觀察者會看到物體似乎旋轉了角度。<br>Lorentz contraction: Length becomes $L=L_0\\sqrt{1-β^2}$; Terrell effect: the object appears rotated due to light delay.'
-      },
-      'en': {
-        title: 'Terrell Effect Simulator',
-        lorentzDesc: 'Lorentz Contraction View',
-        terrellDesc: 'Terrell Visual Effect View',
-        explanation: 'Lorentz contraction: Length becomes $L=L_0\\sqrt{1-β^2}$; Terrell effect: the object appears rotated due to light delay.<br>長度收縮：物體的長度依 $L=L_0\\sqrt{1-β^2}$ 縮短；特勒爾效應：觀察者會看到物體似乎旋轉了角度。'
-      }
-    };
-
-    langSelect.addEventListener('change', () => {
-      const lang = langSelect.value;
-      document.getElementById('title').innerText = translations[lang].title;
-      document.getElementById('lorentzDesc').innerText = translations[lang].lorentzDesc;
-      document.getElementById('terrellDesc').innerText = translations[lang].terrellDesc;
-      document.getElementById('explanation').innerHTML = translations[lang].explanation;
-    });
-
-    betaSlider.addEventListener('input', () => {
-      beta = parseFloat(betaSlider.value);
-      betaLabel.innerText = `β = ${beta.toFixed(2)}`;
-      drawAll();
-    });
-
-    function drawLorentzCanvas(beta) {
-      ctxL.clearRect(0, 0, lorentzCanvas.width, lorentzCanvas.height);
-      const scale = Math.sqrt(1 - beta * beta);
-      const width = cubeSize * scale;
-      const height = cubeSize;
-      ctxL.fillStyle = '#44aaff';
-      ctxL.fillRect(
-        lorentzCanvas.width / 2 - width / 2,
-        lorentzCanvas.height / 2 - height / 2,
-        width,
-        height
-      );
-    }
-
-    function drawTerrellCanvas(beta) {
-      ctxT.clearRect(0, 0, terrellCanvas.width, terrellCanvas.height);
-      const width = cubeSize;
-      const height = cubeSize;
-      const skew = beta * 20;
-      ctxT.fillStyle = '#ffaa44';
-      ctxT.beginPath();
-      ctxT.moveTo(terrellCanvas.width / 2 - width / 2 + skew, terrellCanvas.height / 2 - height / 2);
-      ctxT.lineTo(terrellCanvas.width / 2 + width / 2 + skew, terrellCanvas.height / 2 - height / 2);
-      ctxT.lineTo(terrellCanvas.width / 2 + width / 2 - skew, terrellCanvas.height / 2 + height / 2);
-      ctxT.lineTo(terrellCanvas.width / 2 - width / 2 - skew, terrellCanvas.height / 2 + height / 2);
-      ctxT.closePath();
-      ctxT.fill();
-    }
-
-    function drawAll() {
-      drawLorentzCanvas(beta);
-      drawTerrellCanvas(beta);
-    }
-
-    drawAll();
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
