@@ -19,7 +19,7 @@
       text-align: center;
       padding: 1em;
     }
-    .lang-buttons button, #perspectiveBtn {
+    .lang-buttons button {
       margin: 0 5px;
       padding: 5px 10px;
       font-size: 1rem;
@@ -30,7 +30,7 @@
       cursor: pointer;
       transition: 0.3s;
     }
-    .lang-buttons button:hover, #perspectiveBtn:hover {
+    .lang-buttons button:hover {
       background-color: #555;
     }
     .controls {
@@ -63,29 +63,20 @@
       line-height: 1.8;
       text-align: left;
     }
-    mjx-container {
-      font-family: 'Times New Roman', Times, serif !important;
-    }
   </style>
 
   <!-- MathJax for LaTeX rendering -->
   <script>
-  window.MathJax = {
-    tex: {
-      inlineMath: [['$', '$'], ['\\(', '\\)']]
-    },
-    chtml: {
-      scale: 1
-    }
-  };
-</script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      chtml: { scale: 1 }
+    };
+  </script>
   <script id="MathJax-script" async
-    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 
-  <!-- Three.js CDN -->
+  <!-- Three.js -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three.meshline@1.3.0/THREE.MeshLine.js"></script>
-
 </head>
 <body>
   <header>
@@ -93,7 +84,6 @@
     <div class="lang-buttons">
       <button onclick="setLang('zh-TW')">🇹🇼 繁體中文</button>
       <button onclick="setLang('en')">🇺🇸 English</button>
-      <button id="perspectiveBtn" onclick="togglePerspective()">啟用透視模式</button>
     </div>
     <div class="controls">
       <label id="betaLabel">β = 0.00</label>
@@ -114,145 +104,111 @@
 
   <footer>
     <div id="explanation">
-      <!-- 預設繁體內容會被 setLang 設定 -->
+      Lorentz 收縮：考慮一棒子長度為 $L_0$，在觀測者系中以速度 $v$ 沿 $x$ 軸運動。因事件同時性的重新定義，觀察到的長度為：
+      $$L = L_0\sqrt{1 - \beta^2}$$
+      這是洛倫茲轉換導致的長度收縮。
+      <br><br>
+      Terrell 效應：由於光的有限傳播速度，觀察者所看到的影像是來自物體不同位置的光線，在不同時間發出、同時抵達觀察者，這產生了一種類似於旋轉的視覺錯覺。
+      實際上物體沒有旋轉，而是光到達時間的組合錯覺造成的。
+      <br><br>
+      若考慮一靜止立方體在以速度 $\beta$ 接近觀察者時，它的可見邊緣會彷彿旋轉了角度 $\theta = \sin^{-1}(\beta)$，這就是所謂的 "Terrell rotation"。
     </div>
   </footer>
 
   <script>
-let lang = 'zh-TW';
-let perspectiveEnabled = false;
+    let lang = 'zh-TW';
 
-const scenes = {};
-const renderers = {};
-const cameras = {};
-const cubes = {};
-const lights = {};
-const edges = {};
+    const scenes = {};
+    const renderers = {};
+    const cameras = {};
+    const cubes = {};
 
-function initScene(canvasId) {
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById(canvasId), antialias: true });
-  renderer.setSize(300, 300);
+    function initScene(canvasId) {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById(canvasId), antialias: true });
+      renderer.setSize(300, 300);
 
-  const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshStandardMaterial({ color: 0x3366ff, flatShading: true });
-  const cube = new THREE.Mesh(geometry, material);
-  scene.add(cube);
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshStandardMaterial({ color: 0x3366ff, flatShading: true });
+      const cube = new THREE.Mesh(geometry, material);
+      scene.add(cube);
 
-  const edges = new THREE.EdgesGeometry(geometry);
-const positions = [];
+      // 白色邊線
+      const edgeGeo = new THREE.EdgesGeometry(geometry);
+      const edgeMat = new THREE.LineBasicMaterial({ color: 0xffffff });
+      const edgeLines = new THREE.LineSegments(edgeGeo, edgeMat);
+      cube.add(edgeLines);
 
-for (let i = 0; i < edges.attributes.position.count; i++) {
-  positions.push(edges.attributes.position.array[i]);
-}
+      const light = new THREE.PointLight(0xffffff, 1, 100);
+      light.position.set(5, 5, 5);
+      scene.add(light);
 
-const meshLine = new MeshLine(); // ✅不是 THREE.MeshLine！！
-meshLine.setGeometry(positions);
+      camera.position.z = 3;
 
-const lineMaterial = new MeshLineMaterial({
-  color: 0x3366ff,
-  lineWidth: 0.05,
-  transparent: true,
-  opacity: 1
-});
-
-const line = new THREE.Mesh(meshLine.geometry, lineMaterial);
-cube.add(line);
-
-
-  const light = new THREE.PointLight(0xffffff, 1);
-  light.position.set(2, 2, 5);
-  scene.add(light);
-
-  camera.position.z = 3;
-
-  scenes[canvasId] = scene;
-  renderers[canvasId] = renderer;
-  cameras[canvasId] = camera;
-  cubes[canvasId] = cube;
-  edges[canvasId] = edgeLines;
-}
-
-function animate() {
-  requestAnimationFrame(animate);
-  for (const id in scenes) {
-    if (id === 'lorentzCanvas') {
-      const cube = cubes[id];
-      cube.rotation.y += 0.01;
-      cube.rotation.x += 0.005;
+      scenes[canvasId] = scene;
+      renderers[canvasId] = renderer;
+      cameras[canvasId] = camera;
+      cubes[canvasId] = cube;
     }
-    renderers[id].render(scenes[id], cameras[id]);
-  }
-}
 
-function updateBeta(beta) {
-  document.getElementById("betaLabel").innerText = `β = ${beta.toFixed(2)}`;
-
-  // Lorentz Contraction
-  const lorentzCube = cubes['lorentzCanvas'];
-  lorentzCube.scale.x = Math.sqrt(1 - beta * beta);
-
-  // Terrell Effect - simulate apparent rotation
-  const theta = Math.asin(beta);
-  const terrellCube = cubes['terrellCanvas'];
-  terrellCube.rotation.y = theta;
-}
-
-function setLang(code) {
-  lang = code;
-  const text = {
-    "zh-TW": {
-      title: "特勒爾效應模擬器",
-      lorentzDesc: "洛倫茲收縮示意",
-      terrellDesc: "特勒爾視覺效應示意",
-      explanation: `Lorentz 收縮：考慮一棒子長度為 $L_0$，在觀測者系中以速度 $v$ 沿 $x$ 軸運動。因事件同時性的重新定義，觀察到的長度為：<br><div>\\[ L = L_0 \\sqrt{1 - \\beta^2} \\]</div>這是洛倫茲轉換導致的長度收縮。<br><br>Terrell 效應：由於光的有限傳播速度，觀察者所看到的影像是來自物體不同位置的光線，在不同時間發出、同時抵達觀察者，這產生了一種類似於旋轉的視覺錯覺。實際上物體沒有旋轉，而是光到達時間的組合錯覺造成的。<br><br>若考慮一靜止立方體在以速度 $\\beta$ 接近觀察者時，它的可見邊緣會彷彿旋轉了角度：<br><div>\\[ \\theta = \\sin^{-1}(\\beta) \\]</div>這就是所謂的 Terrell rotation。`,
-      perspective: "啟用透視模式",
-      perspective_off: "關閉透視模式"
-    },
-    "en": {
-      title: "Terrell Effect Simulator",
-      lorentzDesc: "Lorentz Contraction",
-      terrellDesc: "Terrell Visual Effect",
-      explanation: `Lorentz contraction: For a rod of rest length $L_0$ moving at velocity $v$ along the $x$ axis, simultaneity shift causes observed length to be:<br><div>\\[ L = L_0 \\sqrt{1 - \\beta^2} \\]</div><br>Terrell Effect: Because light from different parts of the object reaches the observer at different times, the composite image appears rotated. In reality, the object does not rotate; the appearance is due to timing.<br><br>For a cube moving at velocity $\\beta$, it appears rotated by angle:<br><div>\\[ \\theta = \\sin^{-1}(\\beta) \\]</div>called the Terrell rotation.`,
-      perspective: "Enable Perspective Mode",
-      perspective_off: "Disable Perspective Mode"
+    function animate() {
+      requestAnimationFrame(animate);
+      for (const id in scenes) {
+        if (id === 'lorentzCanvas') {
+          const cube = cubes[id];
+          cube.rotation.y += 0.01;
+          cube.rotation.x += 0.005;
+        }
+        renderers[id].render(scenes[id], cameras[id]);
+      }
     }
-  };
 
-  document.getElementById("title").innerText = text[code].title;
-  document.getElementById("lorentzDesc").innerText = text[code].lorentzDesc;
-  document.getElementById("terrellDesc").innerText = text[code].terrellDesc;
-  document.getElementById("explanation").innerHTML = text[code].explanation;
-  document.getElementById("perspectiveBtn").innerText = perspectiveEnabled ? text[code].perspective_off : text[code].perspective;
-  MathJax.typesetPromise();
-}
+    function updateBeta(beta) {
+      document.getElementById("betaLabel").innerText = `β = ${beta.toFixed(2)}`;
 
-function togglePerspective() {
-  perspectiveEnabled = !perspectiveEnabled;
-  for (const id in cubes) {
-    const cube = cubes[id];
-    const mat = cube.material;
-    mat.transparent = perspectiveEnabled;
-    mat.opacity = perspectiveEnabled ? 0.4 : 1;
-    mat.wireframe = perspectiveEnabled;
+      // Lorentz Contraction
+      const lorentzCube = cubes['lorentzCanvas'];
+      lorentzCube.scale.x = Math.sqrt(1 - beta * beta);
 
-    const edgeMat = edges[id].material;
-    edgeMat.linewidth = perspectiveEnabled ? 40 : 2;
-    edgeMat.color.set(perspectiveEnabled ? 0x3366ff : 0xffffff);
-  }
-  setLang(lang); // refresh button text
-}
+      // Terrell Effect (旋轉視覺)
+      const theta = Math.asin(beta);
+      const terrellCube = cubes['terrellCanvas'];
+      terrellCube.rotation.y = theta;
+    }
 
-// Init
-initScene("lorentzCanvas");
-initScene("terrellCanvas");
-animate();
+    function setLang(code) {
+      lang = code;
+      const text = {
+        "zh-TW": {
+          title: "特勒爾效應模擬器",
+          lorentzDesc: "洛倫茲收縮示意",
+          terrellDesc: "特勒爾視覺效應示意",
+          explanation: `Lorentz 收縮：考慮一棒子長度為 \\( L_0 \\)，在觀測者系中以速度 \\( v \\) 沿 \\( x \\) 軸運動。因事件同時性的重新定義，觀察到的長度為：<br><div>\\[ L = L_0 \\sqrt{1 - \\beta^2} \\]</div>這是洛倫茲轉換導致的長度收縮。<br><br>Terrell 效應：由於光的有限傳播速度，觀察者所看到的影像是來自物體不同位置的光線，在不同時間發出、同時抵達觀察者，這產生了一種類似於旋轉的視覺錯覺。實際上物體沒有旋轉，而是光到達時間的組合錯覺造成的。<br><br>若考慮一靜止立方體在以速度 \\( \\beta \\) 接近觀察者時，它的可見邊緣會彷彿旋轉了角度：<br><div>\\[\\theta = \\sin^{-1}(\\beta)\\]</div>這就是所謂的 Terrell rotation。`,
+        },
+        "en": {
+          title: "Terrell Effect Simulator",
+          lorentzDesc: "Lorentz Contraction",
+          terrellDesc: "Terrell Visual Effect",
+          explanation: `Lorentz contraction: For a rod of rest length \\( L_0 \\) moving at velocity \\( v \\) along the \\( x \\) axis, simultaneity shift causes observed length to be:<br><div>\\[ L = L_0 \\sqrt{1 - \\beta^2} \\]</div><br>Terrell Effect: Because light from different parts of the object reaches the observer at different times, the composite image appears rotated. In reality, the object does not rotate; the appearance is due to timing.<br><br>For a cube moving at velocity \\( \\beta \\), it appears rotated by angle:<br><div>\\[\\theta = \\sin^{-1}(\\beta)\\]</div>called the Terrell rotation.`,
+        }
+      };
 
-// Events
-document.getElementById("betaSlider").addEventListener("input", e => updateBeta(parseFloat(e.target.value)));
-setLang("zh-TW");
+      document.getElementById("title").innerText = text[code].title;
+      document.getElementById("lorentzDesc").innerText = text[code].lorentzDesc;
+      document.getElementById("terrellDesc").innerText = text[code].terrellDesc;
+      document.getElementById("explanation").innerHTML = text[code].explanation;
+      MathJax.typesetPromise();
+    }
 
+    // Init
+    initScene("lorentzCanvas");
+    initScene("terrellCanvas");
+    animate();
+
+    // Event
+    betaSlider.addEventListener("input", e => updateBeta(parseFloat(e.target.value)));
+    setLang("zh-TW");
   </script>
 </body>
 </html>
