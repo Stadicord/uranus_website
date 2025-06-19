@@ -213,7 +213,7 @@ function togglePerspective() {
     mat.wireframe = perspectiveEnabled;
 
     const edgeMat = edges[id].material;
-    edgeMat.linewidth = perspectiveEnabled ? 4 : 2;
+    edgeMat.linewidth = perspectiveEnabled ? 40 : 2;
     edgeMat.color.set(perspectiveEnabled ? 0x3366ff : 0xffffff);
   }
   setLang(lang); // refresh button text
