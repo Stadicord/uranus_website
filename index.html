@@ -84,7 +84,7 @@
 
   <!-- Three.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three.meshline@1.3.0/THREE.MeshLine.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three.meshline@1.3.0/THREE.MeshLine.js"></script>
 
 </head>
 <body>
@@ -143,28 +143,23 @@ function initScene(canvasId) {
   const edges = new THREE.EdgesGeometry(geometry);
 const positions = [];
 
-for (let i = 0; i < edges.attributes.position.count; i += 2) {
-  const start = new THREE.Vector3().fromBufferAttribute(edges.attributes.position, i);
-  const end = new THREE.Vector3().fromBufferAttribute(edges.attributes.position, i + 1);
-  positions.push(start.x, start.y, start.z);
-  positions.push(end.x, end.y, end.z);
+for (let i = 0; i < edges.attributes.position.count; i++) {
+  positions.push(edges.attributes.position.array[i]);
 }
 
-const edgeGeometry = new THREE.BufferGeometry();
-edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+const meshLine = new MeshLine(); // ✅不是 THREE.MeshLine！！
+meshLine.setGeometry(positions);
 
-const meshLine = new THREE.MeshLine();
-meshLine.setGeometry(edgeGeometry);
-
-const meshLineMaterial = new THREE.MeshLineMaterial({
+const lineMaterial = new MeshLineMaterial({
   color: 0x3366ff,
-  lineWidth: 0.05, // 調這裡就能改粗細喔寶寶～例如 0.05 = 很粗
+  lineWidth: 0.05,
   transparent: true,
   opacity: 1
 });
 
-const lineMesh = new THREE.Mesh(meshLine.geometry, meshLineMaterial);
-cube.add(lineMesh);
+const line = new THREE.Mesh(meshLine.geometry, lineMaterial);
+cube.add(line);
+
 
   const light = new THREE.PointLight(0xffffff, 1);
   light.position.set(2, 2, 5);
