@@ -19,7 +19,7 @@
       text-align: center;
       padding: 1em;
     }
-    .lang-buttons button {
+    .lang-buttons button, #perspectiveBtn {
       margin: 0 5px;
       padding: 5px 10px;
       font-size: 1rem;
@@ -30,7 +30,7 @@
       cursor: pointer;
       transition: 0.3s;
     }
-    .lang-buttons button:hover {
+    .lang-buttons button:hover, #perspectiveBtn:hover {
       background-color: #555;
     }
     .controls {
@@ -56,16 +56,20 @@
       border: 1px solid #444;
     }
     #explanation {
-      max-width: 800px;
-      margin: 0 auto;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 20px;
       font-size: 1rem;
-      line-height: 1.6;
+      line-height: 1.8;
+      text-align: left;
     }
   </style>
 
+  <!-- MathJax for LaTeX rendering -->
   <script id="MathJax-script" async
-  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
+  <!-- Three.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/build/three.min.js"></script>
 </head>
 <body>
@@ -74,6 +78,7 @@
     <div class="lang-buttons">
       <button onclick="setLang('zh-TW')">🇹🇼 繁體中文</button>
       <button onclick="setLang('en')">🇺🇸 English</button>
+      <button id="perspectiveBtn" onclick="togglePerspective()">啟用透視模式</button>
     </div>
     <div class="controls">
       <label id="betaLabel">β = 0.00</label>
@@ -93,91 +98,133 @@
   </main>
 
   <footer>
-    <p id="explanation">
-      Lorentz 收縮：物體長度依 $$L = L_0\sqrt{1-\beta^2}$$ 收縮；<br>
-      Terrell 效應：觀測者會因光速有限，看到物體似乎旋轉。
-    </p>
+    <div id="explanation">
+      Lorentz 收縮：考慮一棒子長度為 $L_0$，在觀測者系中以速度 $v$ 沿 $x$ 軸運動。因事件同時性的重新定義，觀察到的長度為：
+      $$L = L_0\sqrt{1 - \beta^2}$$
+      這是洛倫茲轉換導致的長度收縮。
+      <br><br>
+      Terrell 效應：由於光的有限傳播速度，觀察者所看到的影像是來自物體不同位置的光線，在不同時間發出、同時抵達觀察者，這產生了一種類似於旋轉的視覺錯覺。
+      實際上物體沒有旋轉，而是光到達時間的組合錯覺造成的。
+      <br><br>
+      若考慮一靜止立方體在以速度 $\beta$ 接近觀察者時，它的可見邊緣會彷彿旋轉了角度 $\theta = \sin^{-1}(\beta)$，這就是所謂的 "Terrell rotation"。
+    </div>
   </footer>
 
   <script>
-    let beta = 0.0;
+    let lang = 'zh-TW';
+let perspectiveEnabled = false;
 
-const betaSlider = document.getElementById("betaSlider");
-const betaLabel = document.getElementById("betaLabel");
-const langElements = {
-  "zh-TW": {
-    title: "特勒爾效應模擬器",
-    lorentzDesc: "洛倫茲收縮示意",
-    terrellDesc: "特勒爾視覺效應示意",
-    explanation:
-      "Lorentz 收縮：物體長度依 $$L = L_0\\sqrt{1-\\beta^2}$$ 收縮；<br>Terrell 效應：觀測者會因光速有限，看到物體似乎旋轉。",
-  },
-  en: {
-    title: "Terrell Effect Simulator",
-    lorentzDesc: "Lorentz Contraction",
-    terrellDesc: "Terrell Visual Effect",
-    explanation:
-      "Lorentz contraction: Object shrinks by $$L = L_0\\sqrt{1-\\beta^2}$$;<br>Terrell effect: object appears rotated due to light delay.",
-  },
-};
+const scenes = {};
+const renderers = {};
+const cameras = {};
+const cubes = {};
+const lights = {};
+const edges = {};
 
-function setLang(lang) {
-  document.getElementById("title").textContent = langElements[lang].title;
-  document.getElementById("lorentzDesc").textContent = langElements[lang].lorentzDesc;
-  document.getElementById("terrellDesc").textContent = langElements[lang].terrellDesc;
-  document.getElementById("explanation").innerHTML = langElements[lang].explanation;
-  if (window.MathJax) MathJax.typeset();
-}
+function initScene(canvasId, isLorentz) {
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById(canvasId), antialias: true });
+  renderer.setSize(300, 300);
+  renderer.shadowMap.enabled = true;
 
-betaSlider.addEventListener("input", () => {
-  beta = parseFloat(betaSlider.value);
-  betaLabel.textContent = `β = ${beta.toFixed(2)}`;
-  updateCubes();
-});
+  const light = new THREE.SpotLight(0xffffff, 1);
+  light.position.set(5, 5, 5);
+  light.castShadow = true;
+  scene.add(light);
 
-// === THREE.js setup for both canvases ===
-const lorentzRenderer = new THREE.WebGLRenderer({ canvas: document.getElementById("lorentzCanvas"), alpha: true });
-lorentzRenderer.setSize(300, 300);
-const lorentzScene = new THREE.Scene();
-const lorentzCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-lorentzCamera.position.z = 5;
-const lorentzCube = createCube();
-lorentzScene.add(lorentzCube);
-lorentzScene.add(new THREE.AmbientLight(0xffffff));
-
-const terrellRenderer = new THREE.WebGLRenderer({ canvas: document.getElementById("terrellCanvas"), alpha: true });
-terrellRenderer.setSize(300, 300);
-const terrellScene = new THREE.Scene();
-const terrellCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
-terrellCamera.position.z = 5;
-const terrellCube = createCube();
-terrellScene.add(terrellCube);
-terrellScene.add(new THREE.AmbientLight(0xffffff));
-
-function createCube() {
   const geometry = new THREE.BoxGeometry(1, 1, 1);
-  const material = new THREE.MeshStandardMaterial({ color: 0x44aa88, wireframe: false });
-  return new THREE.Mesh(geometry, material);
-}
+  const material = new THREE.MeshStandardMaterial({ color: isLorentz ? 0x00aaff : 0xff8844 });
+  const cube = new THREE.Mesh(geometry, material);
+  cube.castShadow = true;
+  cube.receiveShadow = true;
+  scene.add(cube);
 
-function updateCubes() {
-  const gamma = Math.sqrt(1 - beta * beta);
-  lorentzCube.scale.x = gamma; // Lorentz contraction
-  lorentzCube.rotation.y += 0.01;
+  const edgeGeo = new THREE.EdgesGeometry(geometry);
+  const edgeLines = new THREE.LineSegments(edgeGeo, new THREE.LineBasicMaterial({ color: 0xffffff }));
+  cube.add(edgeLines);
 
-  // Terrell effect: simulate rotation illusion due to light delay
-  const skew = beta * 0.5; // exaggeration for visual
-  terrellCube.rotation.y = skew;
+  camera.position.z = 3;
+
+  scenes[canvasId] = scene;
+  renderers[canvasId] = renderer;
+  cameras[canvasId] = camera;
+  cubes[canvasId] = cube;
+  lights[canvasId] = light;
+  edges[canvasId] = edgeLines;
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  updateCubes();
-  lorentzRenderer.render(lorentzScene, lorentzCamera);
-  terrellRenderer.render(terrellScene, terrellCamera);
+  for (const id in scenes) {
+    const cube = cubes[id];
+    cube.rotation.y += 0.01;
+    cube.rotation.x += 0.005;
+    renderers[id].render(scenes[id], cameras[id]);
+  }
 }
 
+function updateBeta(beta) {
+  document.getElementById("betaLabel").innerText = `β = ${beta.toFixed(2)}`;
+
+  // Lorentz Contraction
+  const lorentzCube = cubes['lorentzCanvas'];
+  lorentzCube.scale.x = Math.sqrt(1 - beta * beta);
+
+  // Terrell Effect - simulate apparent rotation (simplified)
+  const theta = Math.asin(beta);
+  cubes['terrellCanvas'].rotation.y = theta;
+}
+
+function setLang(code) {
+  lang = code;
+  const text = {
+    "zh-TW": {
+      title: "特勒爾效應模擬器",
+      lorentzDesc: "洛倫茲收縮示意",
+      terrellDesc: "特勒爾視覺效應示意",
+      explanation: `Lorentz 收縮：考慮一棒子長度為 $L_0$，在觀測者系中以速度 $v$ 沿 $x$ 軸運動。因事件同時性的重新定義，觀察到的長度為：$$L = L_0\\sqrt{1 - \\beta^2}$$ 這是洛倫茲轉換導致的長度收縮。<br><br>Terrell 效應：由於光的有限傳播速度，觀察者所看到的影像是來自物體不同位置的光線，在不同時間發出、同時抵達觀察者，這產生了一種類似於旋轉的視覺錯覺。實際上物體沒有旋轉，而是光到達時間的組合錯覺造成的。<br><br>若考慮一靜止立方體在以速度 $\\beta$ 接近觀察者時，它的可見邊緣會彷彿旋轉了角度 $\\theta = \\sin^{-1}(\\beta)$，這就是所謂的 \"Terrell rotation\"。`,
+      perspective: "啟用透視模式",
+      perspective_off: "關閉透視模式"
+    },
+    "en": {
+      title: "Terrell Effect Simulator",
+      lorentzDesc: "Lorentz Contraction",
+      terrellDesc: "Terrell Visual Effect",
+      explanation: `Lorentz contraction: For a rod of rest length $L_0$ moving at velocity $v$ along the $x$ axis, simultaneity shift causes observed length to be: $$L = L_0\\sqrt{1 - \\beta^2}$$<br><br>Terrell Effect: Because light from different parts of the object reaches the observer at different times, the composite image appears rotated. In reality, the object does not rotate; the appearance is due to timing.<br><br>For a cube moving at velocity $\\beta$, it appears rotated by angle $\\theta = \\sin^{-1}(\\beta)$, called the \"Terrell rotation\".`,
+      perspective: "Enable Perspective Mode",
+      perspective_off: "Disable Perspective Mode"
+    }
+  };
+
+  document.getElementById("title").innerText = text[code].title;
+  document.getElementById("lorentzDesc").innerText = text[code].lorentzDesc;
+  document.getElementById("terrellDesc").innerText = text[code].terrellDesc;
+  document.getElementById("explanation").innerHTML = text[code].explanation;
+  document.getElementById("perspectiveBtn").innerText = perspectiveEnabled ? text[code].perspective_off : text[code].perspective;
+  MathJax.typeset();
+}
+
+function togglePerspective() {
+  perspectiveEnabled = !perspectiveEnabled;
+  for (const id in cubes) {
+    const cube = cubes[id];
+    const mat = cube.material;
+    mat.transparent = perspectiveEnabled;
+    mat.opacity = perspectiveEnabled ? 0.4 : 1;
+    mat.wireframe = perspectiveEnabled;
+  }
+  setLang(lang); // refresh button text
+}
+
+// Init
+initScene("lorentzCanvas", true);
+initScene("terrellCanvas", false);
 animate();
+
+// Events
+betaSlider.addEventListener("input", e => updateBeta(parseFloat(e.target.value)));
+setLang("zh-TW");
   </script>
 </body>
 </html>
